@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 // Middleware funciton to decode jwt token to clerkId
 const authUser = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    const { token } = req.headers;
 
     console.log("token :>> ", token);
 
@@ -24,3 +24,7 @@ const authUser = async (req, res, next) => {
 };
 
 export default authUser;
+
+
+
+
