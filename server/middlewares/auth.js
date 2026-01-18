@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 // Middleware funciton to decode jwt token to clerkId
 const authUser = async (req, res, next) => {
   try {
-    const { token } = req.headers;
+    const token = req.headers.authorization?.split(" ")[1];
 
     console.log("token :>> ", token);
 
@@ -14,8 +14,8 @@ const authUser = async (req, res, next) => {
       });
     }
 
-    const token_decode = jwt.decode(token);
-    req.body.clerkId = token_decode.clerkId;
+    const decoded = jwt.decode(token);
+    req.body.clerkId = decoded.sub;
     next();
   } catch (error) {
     console.log("error :>> ", error.message);

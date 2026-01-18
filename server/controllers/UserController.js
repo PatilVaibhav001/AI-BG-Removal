@@ -7,60 +7,52 @@ import Razorpay from "razorpay";
 // http://localhost:4000/api/user/webhooks
 const clerkWebhooks = async (req, res) => {
   try {
-    // Create a Svix instance with clerk webhook secret.
     const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
 
-    await whook.verify(req.body, {
-  "svix-id": req.headers["svix-id"],
-  "svix-timestamp": req.headers["svix-timestamp"],
-  "svix-signature": req.headers["svix-signature"],
-});
+    const event = whook.verify(req.body, {
+      "svix-id": req.headers["svix-id"],
+      "svix-timestamp": req.headers["svix-timestamp"],
+      "svix-signature": req.headers["svix-signature"],
+    });
 
+    const { data, type } = event;
 
-    const { data, type } = req.body;
+    console.log("Webhook received:", type);
 
-    switch (type) {
-      case "user.created": {
-        const userData = {
-          clerkId: data.id,
+    if (type === "user.created") {
+      await userModel.create({
+        clerkId: data.id,
+        email: data.email_addresses[0].email_address,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        photo: data.image_url,
+        creditBalance: 5,
+      });
+    }
+
+    if (type === "user.updated") {
+      await userModel.findOneAndUpdate(
+        { clerkId: data.id },
+        {
           email: data.email_addresses[0].email_address,
           firstName: data.first_name,
           lastName: data.last_name,
           photo: data.image_url,
-        };
-        await userModel.create(userData);
-        res.json({});
-        break;
-      }
-      case "user.updated": {
-        const userData = {
-          email: data.email_addresses[0].email_address,
-          firstName: data.first_name,
-          lastname: data.last_name,
-          photo: data.image_url,
-        };
-        await userModel.findOneAndUpdate(
-  { clerkId: data.id },
-  userData,
-  { new: true }
-);
-
-        res.json({});
-        break;
-      }
-      case "user.deleted": {
-        await userModel.findOneAndDelete({ clerkId: data.id });
-        res.json({});
-        break;
-      }
-      default:
-        break;
+        }
+      );
     }
+
+    if (type === "user.deleted") {
+      await userModel.findOneAndDelete({ clerkId: data.id });
+    }
+
+    return res.status(200).json({ received: true });
   } catch (error) {
-    console.log("error :>> ", error.message);
-    res.json({ success: false, message: error.message });
+    console.error("Webhook error:", error);
+    return res.status(400).json({ error: error.message });
   }
 };
+
 
 // API Controller function to get user available credits data
 const userCredits = async (req, res) => {
@@ -68,7 +60,15 @@ const userCredits = async (req, res) => {
     const { clerkId } = req.body;
     const userData = await userModel.findOne({ clerkId });
     console.log("userData :>> ", userData);
-    res.json({ success: true, userCredits: userData.creditBalance });
+    if (!userData) {
+  return res.json({ success: false, message: "User not found" });
+}
+
+res.json({
+  success: true,
+  userCredits: userData.creditBalance,
+});
+
   } catch (error) {
     console.log("error :>> ", error.message);
     res.json({ success: false, message: error.message });
